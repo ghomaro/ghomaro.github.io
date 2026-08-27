@@ -1,0 +1,8 @@
+title: RevenuPassif
+description: Générer des revenus passifs avec l'IA
+baseurl: ""
+url: "https://ghomaro.github.io"
+theme: minima
+plugins:
+  - jekyll-seo-tag
+  - jekyll-sitemap
