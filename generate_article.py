@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-import os, json, random, datetime, httpx
+import os, json, random, datetime, httpx, time
 from pathlib import Path
 
 HF_TOKEN = os.environ.get("HF_TOKEN", "")
-MODEL = "mistralai/Mistral-7B-Instruct-v0.2"
+MODEL = "HuggingFaceH4/zephyr-7b-beta"  # modèle plus stable
 
 TOPICS = [
     "5 astuces pour automatiser son trading de crypto",
@@ -26,22 +26,25 @@ def generate_article(topic: str) -> str:
         "inputs": prompt,
         "parameters": {"max_new_tokens": 1024, "temperature": 0.7, "do_sample": True},
     }
-    try:
-        with httpx.Client(timeout=120) as client:
-            resp = client.post(
-                f"https://api-inference.huggingface.co/models/{MODEL}",
-                headers=headers, json=payload,
-            )
-            resp.raise_for_status()
-            data = resp.json()
-            if isinstance(data, list) and data:
-                text = data[0].get("generated_text", "")
-                if text.startswith(prompt):
-                    text = text[len(prompt):].strip()
-                return text
-            return f"Erreur réponse : {json.dumps(data, indent=2)}"
-    except Exception as e:
-        return f"Erreur API : {e}"
+    for attempt in range(3):
+        try:
+            with httpx.Client(timeout=120) as client:
+                resp = client.post(
+                    f"https://api-inference.huggingface.co/models/{MODEL}",
+                    headers=headers, json=payload,
+                )
+                resp.raise_for_status()
+                data = resp.json()
+                if isinstance(data, list) and data:
+                    text = data[0].get("generated_text", "")
+                    if text.startswith(prompt):
+                        text = text[len(prompt):].strip()
+                    return text
+                return f"Erreur réponse : {json.dumps(data, indent=2)}"
+        except Exception as e:
+            if attempt == 2:
+                return f"Erreur API après 3 tentatives : {e}"
+            time.sleep(2 ** attempt)  # backoff: 1s, 2s, 4s
 
 def save_article(markdown: str, topic: str) -> Path:
     today = datetime.date.today()
